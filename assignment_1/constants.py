@@ -1,0 +1,6 @@
+base_mail_regex =r'X-FileName:.*[\n]+'
+forwarded_mail_regex = r'---------------------- Forwarded(.|\n)*Subject:.*[\n]+'
+nested_mail_regex = r'Subject:.*[\n]+'
+sentence_regex = r'(?<=\?|!|\.)\s*(?=[A-Z]|$)'
+sentence_begin = '<s>'
+sentence_end = '<\s>'
