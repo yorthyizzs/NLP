@@ -90,14 +90,14 @@ class Model:
 
     def _testProbHelper(self, words):
         # this method is a helper method to test data calculation method
-        prob = 1
+        log_prob = 0
         divider = sum(self.trigram.values()) + len(self.trigram.keys()) # find the denominator (smoothed)
         for i in range(len(words)-2):
             temp = words[i] + ' ' + words[i+1] + ' ' + words[i+2] # take trigram of sentence
             numerator = self.trigram[temp] if temp in self.trigram.keys() else 0
             # take frequency if trigram exist in model else it's 0
-            prob *= (numerator+1)/divider # calculate probability
-        return prob
+            log_prob += math.log(2, (numerator+1)/divider)
+        return log_prob
 
 
     def _addSentenceBoundaries(self):
@@ -145,7 +145,7 @@ class Model:
 
     def _subDict(self, starterKey, ngram):
         # this method creates a sub dict with the keys that starts with given key
-        return {key: val for key, val in ngram.items() if key.startswith(starterKey)}
+        return {key: val for key, val in ngram.items() if key.startswith(starterKey+' ')}
 
     def _findRandomized(self, ngram, divider, smooth=False):
         # this method find randomized word with smoothed and unsmoothed way
