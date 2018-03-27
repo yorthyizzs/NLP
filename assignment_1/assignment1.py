@@ -1,11 +1,11 @@
-import Utils
+import utils
 import model
 import sys
 
 def prepeareModel(fileName):
-    mailBodies = Utils.extractMailBodies(fileName)
+    mailBodies = utils.extractMailBodies(fileName)
     limit = int(len(mailBodies) * 6 / 10)
-    sentences = Utils.extractSentences(mailBodies[:limit])
+    sentences = utils.extractSentences(mailBodies[:limit])
     m = model.Model(sentences=sentences, test_data=mailBodies[limit:])
     m.train()
     return m

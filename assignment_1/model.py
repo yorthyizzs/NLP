@@ -92,6 +92,13 @@ class Model:
         # this method is a helper method to test data calculation method
         log_prob = 0
         divider = sum(self.trigram.values()) + len(self.trigram.keys()) # find the denominator (smoothed)
+        #First attempt
+        temp = constants.sentence_begin + ' ' + constants.sentence_begin + ' ' + words[0]
+        numerator = self.trigram[temp] if temp in self.trigram.keys() else 0
+        log_prob += math.log(2, (numerator + 1) / divider)
+        temp = constants.sentence_begin + ' '  + words[0] + ' '  + words[1]
+        numerator = self.trigram[temp] if temp in self.trigram.keys() else 0
+        log_prob += math.log(2, (numerator + 1) / divider)
         for i in range(len(words)-2):
             temp = words[i] + ' ' + words[i+1] + ' ' + words[i+2] # take trigram of sentence
             numerator = self.trigram[temp] if temp in self.trigram.keys() else 0
