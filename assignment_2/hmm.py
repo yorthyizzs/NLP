@@ -1,6 +1,7 @@
 import re
 import constants
 from collections import Counter
+import numpy as np
 
 
 class HiddenMarkovModel:
@@ -15,7 +16,13 @@ class HiddenMarkovModel:
         self.deletion = []
         self.insertion = []
         self.substitution = []
-        self.morphemes = []
+        self.morphemes = set()
+        self.insertProbs = {}
+        self.delProbs = {}
+        self.subProbs = {}
+        self.misvocab = {}
+        self.morphemeCount = {}
+        self.mispelledCorrection = []
 
     def _readData(self):
         fp = open(self.datafile)
@@ -54,57 +61,104 @@ class HiddenMarkovModel:
 
     def _calculateEdits(self):
         for mispelled in self.mispelled:
-            for word in self.words:
-                if len(word) == len(mispelled):
-                    self._checkSubstituion(mispelled, word)
-                elif len(word) > len(mispelled):
-                    self._checkDeletion(mispelled, word)
-                else:
-                    print("")
+            self.misvocab[mispelled] = []
+            if len(mispelled.split(' ')) < 2:
+                for word in self.words:
+                    if len(word) == len(mispelled):
+                        self._checkSubstituion(mispelled, word)
+                    elif len(word) - len(mispelled) == 1:
+                        self._checkDeletion(mispelled, word)
+                    elif len(mispelled) - len(word) == 1:
+                        self._checkInsertion(mispelled, word)
+            else:
+                for line in self.lines:
+                    for i in range(2,len(line)-1):
+                        word = line[i-1]+' '+line[i]
+                        if len(word) == len(mispelled):
+                            self._checkSubstituion(mispelled, word)
+                        elif len(word) - len(mispelled) == 1:
+                            self._checkDeletion(mispelled, word)
+                        elif len(mispelled) - len(word) == 1:
+                            self._checkInsertion(mispelled, word)
+
+
+        self.deletion = Counter(self.deletion)
+        self.insertion = Counter(self.insertion)
+        self.substitution = Counter(self.substitution)
 
     def _checkSubstituion(self, word, candidate):
         temp_sub = None
         temp_divider = None
         for i in range(len(word)):
-            if word[i] != candidate[i] :
-                if temp_sub is not None:
-                    temp_sub = candidate[i]+' '+word[i]
+            if word[i] != candidate[i]:
+                if temp_sub is None:
+                    temp_sub = candidate[i]+''+word[i]
                     temp_divider = word[i]
-                else :
+                else:
                     return
-        self.morphemes.append(temp_divider)
-        self.substitution.append(temp_sub)
+        if temp_sub:
+            self.morphemes.add(temp_divider)
+            self.substitution.append(temp_sub)
+            self.subProbs[word + ' ' +candidate] = temp_sub
+            self.misvocab[word].append(candidate)
 
     def _checkDeletion(self, word, candidate):
         temp_del = None
         for i in range(len(word)):
             if word[i] != candidate[i]: # if alignment broke
-                if i == 0 : temp_del= '# '+candidate[i]
-                else : temp_del= candidate[i-1]+' '+candidate[i]  # set as edit
-                for j in range(i+1, len(word)): # check if there is another edit
+                if i == 0: temp_del= '#'+candidate[i]
+                else: temp_del= candidate[i-1]+''+candidate[i]  # set as edit
+                for j in range(i, len(word)): # check if there is another edit
                     # if so distance!=1 return
                     if word[j] != candidate[j+1]: return
                 break
         if temp_del is None: # if alignment did not break it means last character is missed
-            temp_del = candidate[len(candidate)-2] + ' ' + candidate[len(candidate)-1]
-        self.morphemes.append(temp_del)
+            temp_del = candidate[len(candidate)-2] + '' + candidate[len(candidate)-1]
+        self.morphemes.add(temp_del)
         self.deletion.append(temp_del)
+        self.delProbs[word + ' ' +candidate] = temp_del
+        self.misvocab[word].append(candidate)
+
+    def _checkInsertion(self, word, candidate):
+        temp_ins = None
+        temp_divider = None
+        for i in range(len(candidate)):
+            if word[i] != candidate[i]:  # if alignment broke
+                if i == 0:
+                    temp_ins = '#' + word[i]
+                    temp_divider = '#'
+                else:
+                    temp_ins = word[i - 1] + '' + word[i]  # set as edit
+                    temp_divider = word[i - 1]
+                for j in range(i, len(candidate)):  # check if there is another edit
+                    # if so distance!=1 return
+                    if candidate[j] != word[j + 1]:
+                        return
+                break
+        if temp_ins is None:  # if alignment did not break it means last character is missed
+            temp_ins = word[len(word) - 2] + '' + word[len(word) - 1]
+            temp_divider = word[len(word) - 2]
+        self.morphemes.add(temp_divider)
+        self.insertion.append(temp_ins)
+        self.insertProbs[word + ' ' + candidate] = temp_ins
+        self.misvocab[word].append(candidate)
 
 
-
-
-
+    def _countMorphemes(self):
+        bigStr = ''
+        for line in self.unilines:
+            bigStr+=line
+        for morpheme in self.morphemes:
+            self.morphemeCount[morpheme] = bigStr.count(morpheme)
 
 
     def train(self):
         self._correctData()
         self._extractWords()
         self._buildBigram()
-        self._checkDeletion('acress', 'actress')
-        self._checkDeletion('actres', 'actress')
-        self._checkDeletion('ctress', 'actress')
-
-
+        self._calculateEdits()
+        self._countMorphemes()
+       
 
 
 
