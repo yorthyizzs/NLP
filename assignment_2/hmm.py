@@ -27,10 +27,11 @@ class HiddenMarkovModel:
         fp = open(self.datafile)
         return fp.readlines()
 
-    def _correctData(self):
+    def _collectData(self):
         for line in self._readData():
             self.unilines.append(self._correctLine(line.strip()))
 
+    # correct the error word with the target ones
     def _correctLine(self, line):
         errors = re.finditer(constants.ERROR_REGEX, line)
         for error in errors:
@@ -41,6 +42,7 @@ class HiddenMarkovModel:
     def _extractWords(self):
         for line in self.unilines:
             line = re.split(constants.WORDS_EXTRACTER, line) # extract the words and punctuations
+            # take only the words and make them lower case
             line = [w.lower() for w in line if  (w != '' and w != ' ' and
                                                  w != '\n' and w != '"' and
                                                  w != '.' and w != ',' and
@@ -67,7 +69,7 @@ class HiddenMarkovModel:
         for mispelled in self.mispelled:
             mispelled = mispelled.lower()
             self.misvocab[mispelled] = []
-
+            # check word's substitution / insertion / deletion words
             for word in self.words:
                 if len(word) == len(mispelled):
                     self._checkSubstituion(mispelled, word)
@@ -76,6 +78,7 @@ class HiddenMarkovModel:
                 elif len(mispelled) - len(word) == 1:
                     self._checkInsertion(mispelled, word)
 
+            # if there is a mispelled 2 word then check the words with edit distance 1 for it too
             if len(mispelled.split(' ')) > 2:
                 for line in self.lines:
                     for i in range(2, len(line)-1):
@@ -87,11 +90,12 @@ class HiddenMarkovModel:
                         elif len(mispelled) - len(word) == 1:
                             self._checkInsertion(mispelled, word)
 
-
+        # count the occurences of those edit operations
         self.deletion = Counter(self.deletion)
         self.insertion = Counter(self.insertion)
         self.substitution = Counter(self.substitution)
 
+    # if the words are in same length check if there is only one edit if so add to corresponding indexes
     def _checkSubstituion(self, word, candidate):
         temp_sub = None
         temp_divider = None
@@ -108,6 +112,9 @@ class HiddenMarkovModel:
             self.subProbs[word + ' ' +candidate] = temp_sub
             self.misvocab[word].append(candidate)
 
+    # if there might be deletion probability between the words
+    # check if one deletion operation is ok to convert them to each other
+    # and add the operation to corresponding indexes
     def _checkDeletion(self, word, candidate):
         temp_del = None
         for i in range(len(word)):
@@ -125,6 +132,9 @@ class HiddenMarkovModel:
         self.delProbs[word + ' ' +candidate] = temp_del
         self.misvocab[word].append(candidate)
 
+    # if there might be insertion probability between the words
+    # check if one insertion operation is ok to convert them to each other
+    # and add the operation to corresponding indexes
     def _checkInsertion(self, word, candidate):
         temp_ins = None
         temp_divider = None
@@ -149,7 +159,9 @@ class HiddenMarkovModel:
         self.insertProbs[word + ' ' + candidate] = temp_ins
         self.misvocab[word].append(candidate)
 
-
+    # the morphemes that is calculated in operation calculation
+    # which will be needed for emission probabilities
+    # will be count here
     def _countMorphemes(self):
         bigStr = ''
         for line in self.unilines:
@@ -163,16 +175,20 @@ class HiddenMarkovModel:
             else:
                 self.morphemeCount[morpheme] = bigStr.count(morpheme)
 
+    # for viterbi calculation return the bigram probability of corresponding two words in a row
+    # a.k.a transission probability
     def getBigramProb(self, word1, word2):
         divident = 1
         divider = len(self.unigram.keys())
-        bigram = word1+ ' ' + word2
+        bigram = word1 + ' ' + word2
         if bigram in self.bigram.keys():
             divident += self.bigram[bigram]
         if word1 in self.unigram.keys():
             divider += self.unigram[word1]
         return float(divident/divider)
 
+    # for viterbi calculation return the edit probability of between two word
+    # a.k.a emission probability
     def getEditProb(self, word1, word2):
         key = word1 + ' ' + word2
         divident = 0
@@ -190,15 +206,15 @@ class HiddenMarkovModel:
             divident = self.substitution[inner_key]
             divider = self.morphemeCount[inner_key[0]]
 
-
         return float(divident/divider)
 
+    # return if corresponding word has a candidate word
     def inVocab(self, mispelled):
         return len(self.misvocab[mispelled]) != 0
 
 
     def train(self):
-        self._correctData()
+        self._collectData()
         self._extractWords()
         self._buildBigram()
         self._calculateEdits()

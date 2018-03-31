@@ -106,8 +106,9 @@ class Viterbi:
                     checks += 1
                 self.printOut(base_line, winner)
             else :
-                self.output.write(base_line + '\n')
+                self.output.write(base_line )
         # after finishing all data print out the accuracy
+        self.output.write("-------------------------------------------------------------------------------------------\n")
         self.output.write("ACCURACY :")
         self.output.write("%0.2f" % (check_true/checks))
 
@@ -119,7 +120,7 @@ class Viterbi:
             base_sentence = base_sentence.replace(error.group(0), corrections[i])
             i += 1
 
-        self.output.write(base_sentence+'\n')
+        self.output.write(base_sentence)
 
 
     # calculate the bigram probability for given line part
