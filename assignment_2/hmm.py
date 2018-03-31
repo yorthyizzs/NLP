@@ -10,6 +10,7 @@ class HiddenMarkovModel:
         self.unilines = []
         self.mispelled = []
         self.words = []
+        self.raw_words = []
         self.lines = []
         self.unigram = None
         self.bigram = None
@@ -42,37 +43,44 @@ class HiddenMarkovModel:
     def _extractWords(self):
         for line in self.unilines:
             line = re.split(constants.WORDS_EXTRACTER, line) # extract the words and punctuations
-            line = [w for w in line if  (w != '' and w != ' ' and w != '\n')]
+            line = [w.lower() for w in line if  (w != '' and w != ' ' and
+                                                 w != '\n' and w != '"' and
+                                                 w != '.' and w != ',' and
+                                                 w != '!' and w != '?' and
+                                                 w != ';' and w != '/' and
+                                                 w != '\\')]
             if line:
-                self.words.extend(line) # collect the words at the same time
+                self.raw_words.extend(line) # collect the words at the same time
                 line.insert(0, constants.START) # add sentence boundaries to each line
                 line.append(constants.END)
                 self.lines.append(line) # collect the modified sentences
-        self.unigram = Counter(self.words) # count the word occurences
-        self.words = set(self.words) # hold only unique words
+        self.unigram = Counter(self.raw_words) # count the word occurences
+        self.words = set(self.raw_words) # hold only unique words
         self.mispelled = set(self.mispelled)
 
-    def _buildBigram(self):
+    def  _buildBigram(self):
         tempbigram = []
         for line in self.lines:
             for i in range(1, len(line)):
-                tempbigram.append(line[i-1]+ ' ' + line[i])
+                tempbigram.append(line[i-1] + ' ' + line[i])
         self.bigram = Counter(tempbigram)
 
     def _calculateEdits(self):
         for mispelled in self.mispelled:
+            mispelled = mispelled.lower()
             self.misvocab[mispelled] = []
-            if len(mispelled.split(' ')) < 2:
-                for word in self.words:
-                    if len(word) == len(mispelled):
-                        self._checkSubstituion(mispelled, word)
-                    elif len(word) - len(mispelled) == 1:
-                        self._checkDeletion(mispelled, word)
-                    elif len(mispelled) - len(word) == 1:
-                        self._checkInsertion(mispelled, word)
-            else:
+
+            for word in self.words:
+                if len(word) == len(mispelled):
+                    self._checkSubstituion(mispelled, word)
+                elif len(word) - len(mispelled) == 1:
+                    self._checkDeletion(mispelled, word)
+                elif len(mispelled) - len(word) == 1:
+                    self._checkInsertion(mispelled, word)
+
+            if len(mispelled.split(' ')) > 2:
                 for line in self.lines:
-                    for i in range(2,len(line)-1):
+                    for i in range(2, len(line)-1):
                         word = line[i-1]+' '+line[i]
                         if len(word) == len(mispelled):
                             self._checkSubstituion(mispelled, word)
@@ -93,7 +101,7 @@ class HiddenMarkovModel:
             if word[i] != candidate[i]:
                 if temp_sub is None:
                     temp_sub = candidate[i]+''+word[i]
-                    temp_divider = word[i]
+                    temp_divider = candidate[i]
                 else:
                     return
         if temp_sub:
@@ -125,8 +133,8 @@ class HiddenMarkovModel:
         for i in range(len(candidate)):
             if word[i] != candidate[i]:  # if alignment broke
                 if i == 0:
-                    temp_ins = '#' + word[i]
-                    temp_divider = '#'
+                    temp_ins = ' ' + word[i]
+                    temp_divider = ' '
                 else:
                     temp_ins = word[i - 1] + '' + word[i]  # set as edit
                     temp_divider = word[i - 1]
@@ -147,9 +155,48 @@ class HiddenMarkovModel:
     def _countMorphemes(self):
         bigStr = ''
         for line in self.unilines:
-            bigStr+=line
+            bigStr+=line.lower()
         for morpheme in self.morphemes:
-            self.morphemeCount[morpheme] = bigStr.count(morpheme)
+            if morpheme[0] == '#':
+                count = 0
+                for word in self.raw_words:
+                    if word[0] == morpheme[1]: count += 1
+                self.morphemeCount[morpheme] = count
+            else:
+                self.morphemeCount[morpheme] = bigStr.count(morpheme)
+
+    def getBigramProb(self, word1, word2):
+        divident = 1
+        divider = len(self.unigram.keys())
+        bigram = word1+ ' ' + word2
+        if bigram in self.bigram.keys():
+            divident += self.bigram[bigram]
+        if word1 in self.unigram.keys():
+            divider += self.unigram[word1]
+        return float(divident/divider)
+
+    def getEditProb(self, word1, word2):
+        key = word1 + ' ' + word2
+        divident = 0
+        divider = 1
+        if key in self.insertProbs.keys():
+            inner_key = self.insertProbs[key]
+            divident = self.insertion[inner_key]
+            divider = self.morphemeCount[inner_key[0]]
+        if key in self.delProbs.keys():
+            inner_key = self.delProbs[key]
+            divident = self.deletion[inner_key]
+            divider = self.morphemeCount[inner_key]
+        if key in self.subProbs.keys():
+            inner_key = self.subProbs[key]
+            divident = self.substitution[inner_key]
+            divider = self.morphemeCount[inner_key[0]]
+
+
+        return float(divident/divider)
+
+    def inVocab(self, mispelled):
+        return len(self.misvocab[mispelled]) != 0
 
 
     def train(self):
