@@ -1,9 +1,14 @@
 import hmm
 import viterbi
 
-model = hmm.HiddenMarkovModel('dataset.txt')
-model.train()
+if __name__ == '__main__':
+    import sys
+    input = sys.argv[1]
+    output = sys.argv[2]
 
-vit = viterbi.Viterbi('dataset.txt', model)
-vit.calculateAccuracy()
+    model = hmm.HiddenMarkovModel(input)
+    model.train()
+
+    vito = viterbi.Viterbi(input, model, output)
+    vito.calculateAccuracy()
 

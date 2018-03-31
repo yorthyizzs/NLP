@@ -1,8 +1,6 @@
 import re
 import constants
 from collections import Counter
-import numpy as np
-
 
 class HiddenMarkovModel:
     def __init__(self, datafile):
