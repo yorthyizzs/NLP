@@ -7,7 +7,7 @@ class HiddenMarkovModel:
         self.datafile = datafile
         self.unilines = []
         self.mispelled = []
-        self.words = []
+        self.words = None
         self.raw_words = []
         self.lines = []
         self.unigram = None
@@ -36,7 +36,7 @@ class HiddenMarkovModel:
         errors = re.finditer(constants.ERROR_REGEX, line)
         for error in errors:
             line = line.replace(error.group(0), error.group(1)) # correct the sentences to get clear data
-            self.mispelled.append(error.group(2)) # collect mispelled words
+            self.mispelled.append(error.group(2).lower()) # collect mispelled words
         return line
 
     def _extractWords(self):
@@ -57,6 +57,7 @@ class HiddenMarkovModel:
         self.unigram = Counter(self.raw_words) # count the word occurences
         self.words = Counter(self.raw_words) # hold only unique words
         self.mispelled = set(self.mispelled)
+
 
     def  _buildBigram(self):
         tempbigram = []
@@ -123,8 +124,8 @@ class HiddenMarkovModel:
         temp_del = None
         for i in range(len(word)):
             if word[i] != candidate[i]: # if alignment broke
-                if i == 0: temp_del= '#'+candidate[i]
-                else: temp_del= candidate[i-1]+''+candidate[i]  # set as edit
+                if i == 0: temp_del = '#'+candidate[i]
+                else: temp_del = candidate[i-1]+''+candidate[i]  # set as edit
                 for j in range(i, len(word)): # check if there is another edit
                     # if so distance!=1 return
                     if word[j] != candidate[j+1]: return
@@ -177,7 +178,9 @@ class HiddenMarkovModel:
     def _countMorphemes(self):
         bigStr = ''
         for line in self.unilines:
-            bigStr+=line.lower()
+            bigStr += line.lower()
+        # if #x is seen as morpheme this means
+        # count only the words that starts with x
         for morpheme in self.morphemes:
             if morpheme[0] == '#':
                 count = 0
@@ -190,7 +193,7 @@ class HiddenMarkovModel:
     # for viterbi calculation return the bigram probability of corresponding two words in a row
     # a.k.a transission probability
     def getBigramProb(self, word1, word2):
-        divident = 1
+        divident = 1 # smoothing values
         divider = len(self.unigram.keys())
         bigram = word1 + ' ' + word2
         if bigram in self.bigram.keys():
@@ -209,14 +212,17 @@ class HiddenMarkovModel:
             inner_key = self.insertProbs[key]
             divident = self.insertion[inner_key]
             divider = self.morphemeCount[inner_key[0]]
+            # ins[x,y] / count(x)
         if key in self.delProbs.keys():
             inner_key = self.delProbs[key]
             divident = self.deletion[inner_key]
             divider = self.morphemeCount[inner_key]
+            # del[x,y] / count(xy)
         if key in self.subProbs.keys():
             inner_key = self.subProbs[key]
             divident = self.substitution[inner_key]
             divider = self.morphemeCount[inner_key[0]]
+            # sub[x,y] / count(x)
 
         return float(divident/divider)
 
@@ -231,7 +237,6 @@ class HiddenMarkovModel:
         self._buildBigram()
         self._calculateEdits()
         self._countMorphemes()
-
        
 
 

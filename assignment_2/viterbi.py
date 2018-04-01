@@ -96,6 +96,8 @@ class Viterbi:
                 # if it comes to this point this means that it pass the beginning
                 isBegin = False
 
+            # after all error if there is a sentence in right hand side
+            # calculate the transission probability (a.k.a bigram)
             if right is not None:
                 for node in nodes:
                     prob, node.lastword = self._calculateCommonBigramProb(right, isBegin)
@@ -117,7 +119,7 @@ class Viterbi:
         # after finishing all data print out the accuracy
         self.output.write("-------------------------------------------------------------------------------------------\n")
         self.output.write("ACCURACY :")
-        self.output.write("%0.2f" % (check_true/checks))
+        self.output.write("%0.4f" % (check_true/checks))
 
     # print out the corrected line with before after version
     def printOut(self, base_sentence, corrections):
