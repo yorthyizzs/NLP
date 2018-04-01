@@ -55,7 +55,7 @@ class HiddenMarkovModel:
                 line.append(constants.END)
                 self.lines.append(line) # collect the modified sentences
         self.unigram = Counter(self.raw_words) # count the word occurences
-        self.words = set(self.raw_words) # hold only unique words
+        self.words = Counter(self.raw_words) # hold only unique words
         self.mispelled = set(self.mispelled)
 
     def  _buildBigram(self):
@@ -70,13 +70,13 @@ class HiddenMarkovModel:
             mispelled = mispelled.lower()
             self.misvocab[mispelled] = []
             # check word's substitution / insertion / deletion words
-            for word in self.words:
+            for word in self.words.keys():
                 if len(word) == len(mispelled):
-                    self._checkSubstituion(mispelled, word)
+                    self._checkSubstituion(mispelled, word, self.words[word])
                 elif len(word) - len(mispelled) == 1:
-                    self._checkDeletion(mispelled, word)
+                    self._checkDeletion(mispelled, word, self.words[word])
                 elif len(mispelled) - len(word) == 1:
-                    self._checkInsertion(mispelled, word)
+                    self._checkInsertion(mispelled, word, self.words[word])
 
             # if there is a mispelled 2 word then check the words with edit distance 1 for it too
             if len(mispelled.split(' ')) > 2:
@@ -84,11 +84,11 @@ class HiddenMarkovModel:
                     for i in range(2, len(line)-1):
                         word = line[i-1]+' '+line[i]
                         if len(word) == len(mispelled):
-                            self._checkSubstituion(mispelled, word)
+                            self._checkSubstituion(mispelled, word,1)
                         elif len(word) - len(mispelled) == 1:
-                            self._checkDeletion(mispelled, word)
+                            self._checkDeletion(mispelled, word,1)
                         elif len(mispelled) - len(word) == 1:
-                            self._checkInsertion(mispelled, word)
+                            self._checkInsertion(mispelled, word,1)
 
         # count the occurences of those edit operations
         self.deletion = Counter(self.deletion)
@@ -96,7 +96,7 @@ class HiddenMarkovModel:
         self.substitution = Counter(self.substitution)
 
     # if the words are in same length check if there is only one edit if so add to corresponding indexes
-    def _checkSubstituion(self, word, candidate):
+    def _checkSubstituion(self, word, candidate, repeat):
         temp_sub = None
         temp_divider = None
         for i in range(len(word)):
@@ -108,14 +108,18 @@ class HiddenMarkovModel:
                     return
         if temp_sub:
             self.morphemes.add(temp_divider)
-            self.substitution.append(temp_sub)
+            # if there is substitution operation happened between the words
+            # add that operation by words repeat times
+            # by this sub[x,y] will be correctly calculated
+            for i in range(repeat):
+                self.substitution.append(temp_sub)
             self.subProbs[word + ' ' +candidate] = temp_sub
             self.misvocab[word].append(candidate)
 
     # if there might be deletion probability between the words
     # check if one deletion operation is ok to convert them to each other
     # and add the operation to corresponding indexes
-    def _checkDeletion(self, word, candidate):
+    def _checkDeletion(self, word, candidate, repeat):
         temp_del = None
         for i in range(len(word)):
             if word[i] != candidate[i]: # if alignment broke
@@ -128,14 +132,18 @@ class HiddenMarkovModel:
         if temp_del is None: # if alignment did not break it means last character is missed
             temp_del = candidate[len(candidate)-2] + '' + candidate[len(candidate)-1]
         self.morphemes.add(temp_del)
-        self.deletion.append(temp_del)
+        # if there is deletion operation happened between the words
+        # add that operation by words repeation times
+        # by this del[x,y] will be correctly calculated
+        for i in range(repeat):
+            self.deletion.append(temp_del)
         self.delProbs[word + ' ' +candidate] = temp_del
         self.misvocab[word].append(candidate)
 
     # if there might be insertion probability between the words
     # check if one insertion operation is ok to convert them to each other
     # and add the operation to corresponding indexes
-    def _checkInsertion(self, word, candidate):
+    def _checkInsertion(self, word, candidate, repeat):
         temp_ins = None
         temp_divider = None
         for i in range(len(candidate)):
@@ -155,7 +163,11 @@ class HiddenMarkovModel:
             temp_ins = word[len(word) - 2] + '' + word[len(word) - 1]
             temp_divider = word[len(word) - 2]
         self.morphemes.add(temp_divider)
-        self.insertion.append(temp_ins)
+        # if there is insertion operation happened between the words
+        # add that operation by words repeat times
+        # by this ins[x,y] will be correctly calculated
+        for i in range(repeat):
+            self.insertion.append(temp_ins)
         self.insertProbs[word + ' ' + candidate] = temp_ins
         self.misvocab[word].append(candidate)
 
@@ -219,6 +231,7 @@ class HiddenMarkovModel:
         self._buildBigram()
         self._calculateEdits()
         self._countMorphemes()
+
        
 
 

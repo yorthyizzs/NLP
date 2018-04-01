@@ -45,6 +45,7 @@ class Viterbi:
             isBegin = True
             # hold right words to calculate accuracy of corrections
             rightversions = []
+            right = None
             for error in errors:
                 # for each error seperate the sentence into two
                 # left hand side will be bigram calculation
@@ -94,6 +95,12 @@ class Viterbi:
                         node.corrections.append(error.group(2))
                 # if it comes to this point this means that it pass the beginning
                 isBegin = False
+
+            if right is not None:
+                for node in nodes:
+                    prob, node.lastword = self._calculateCommonBigramProb(right, isBegin)
+                    node.prob *= prob
+
 
             # get the winner node from the final nodes for line
             winner = self._maxNode(nodes).corrections
