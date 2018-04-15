@@ -1,6 +1,7 @@
 LEXELT = r'<lexelt item="(.*)">((.|\n)*?)<\/lexelt>'
 INSTANCE = r'<instance id="(.*)">((.|\n)*?)<\/instance>'
 ANSWER = r'<answer instance="(.*)" senseid="(.*)"/>\n\n<context>((.|\n)*?)<\/context>'
+CONTEXT = r'<context>((.|\n)*?)<\/context>'
 HEAD = r'<head>(.*?)</head>'
 POS = r'(.*?) <p="(.*?)"\/>'
 
